@@ -59,6 +59,7 @@ class Client:
             received = self.sock.recv(1024)
             current, eom, next = received.partition(b"\r\n")
             self._buffer += current
+            # End Of Message
             if eom:
                 if self._buffer == b"PING":
                     self.sock.send(b"PONG\r\n")
@@ -78,20 +79,25 @@ class Client:
                     # MSG ...  \r\n[payload]\r\n
                     split = self._buffer.split(b" ")
                     subject = split[1]
+                    # is it a request?
                     inbox = False
                     if len(split) == 5:
                         inbox = split[3]
+                    # End Of Payload
                     payload, eop, _ = next.partition(b"\r\n")
                     if eop:
+                        # request
                         if inbox:
                             self._messages.put(Request(subject, inbox, payload))
+                        # response
                         elif subject.startswith(b"INBOX."):
                             self._response.put(Response(payload))
+                        # vanilla message
                         else:
                             self._messages.put(Message(subject, payload))
                         next = b""
                 else:
-                    # multi recv payload
+                    # payload over multiple recv calls
                     if inbox:
                         self._messages.put(Request(subject, inbox, payload))
                     elif subject.startswith(b"INBOX."):
