@@ -5,6 +5,7 @@ simplistic NATS client
 import queue
 import socket
 import threading
+import uuid
 from collections import namedtuple
 
 
@@ -29,7 +30,7 @@ class Client:
         self.sock.send(f"SUB {subject} {self._sid}\r\n".encode("utf-8"))
 
     def request(self, *, subject, payload=""):
-        inbox = "INBOX.1"
+        inbox = f"INBOX.{uuid.uuid4().hex}"
         self._sid += 1
         self.sock.send(f"SUB {inbox} {self._sid}\r\n".encode("utf-8"))
         self.sock.send(
