@@ -37,6 +37,7 @@ Fire up NATS on your dev box and `python -m goingnats` to see it run.
 ```Python
 import datetime as dt
 import time
+import threading
 
 from goingnats import Client
 
