@@ -1,5 +1,7 @@
 """
 simplistic NATS client
+
+https://docs.nats.io/nats-protocol/nats-protocol
 """
 
 import queue
