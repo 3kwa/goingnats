@@ -1,5 +1,5 @@
 """
-simplistic NATS client
+a Python NATS client
 
 https://docs.nats.io/nats-protocol/nats-protocol
 """
@@ -23,7 +23,7 @@ class Client:
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def get(self):
-        return self._messages.get()
+        return [self._messages.get_nowait() for _ in range(self._messages.qsize())]
 
     def publish(self, *, subject, payload=""):
         self._sock.send(f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8"))
@@ -120,6 +120,7 @@ if __name__ == "__main__":
     from contextlib import suppress
 
     def publisher():
+        """publish time.time() every second"""
         with Client(name="publisher") as client:
             while True:
                 time.sleep(1)
@@ -128,21 +129,28 @@ if __name__ == "__main__":
     threading.Thread(target=publisher, daemon=True).start()
 
     def responder():
+        """respond to request for today with the date"""
         with Client(name="responder") as client:
             client.subscribe(subject="today")
             while True:
-                request = client.get()
-                client.publish(
-                    subject=request.inbox.decode("utf-8"), payload=f"{dt.date.today()}"
-                )
+                for request in client.get():
+                    # slow responder
+                    time.sleep(2)
+                    format = request.payload.decode("utf-8") if request.payload else "%Y-%m-%d"
+                    client.publish(
+                            subject=request.inbox.decode("utf-8"), payload=f"{dt.date.today():{format}}"
+                    )
 
     threading.Thread(target=responder, daemon=True).start()
 
     with suppress(KeyboardInterrupt), Client(name="consumer") as client:
         client.subscribe(subject="time.time")
-        requested = False
-        while True:
-            print(client.get())
-            if not requested:
-                print(client.request(subject="today"))
-                requested = True
+        received = 0
+        response = None
+        while received < 5:
+            for message in client.get():
+                print(message)
+                received += 1
+            if received == 3 and response is None:
+                response = client.request(subject="today", payload="%Y%m%d")
+                print(response)
