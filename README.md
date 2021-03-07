@@ -24,7 +24,7 @@ a Python NATS client that fits the way I use NATS.
 
 It is far from feature complete.
 
-It implements the feature I use, which maybe all you need too.
+It implements the features I use, which maybe all you need too.
 
 How?
 ----
