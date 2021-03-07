@@ -59,7 +59,7 @@ class Client:
 
     def _thread(self):
         while True:
-            received = self.sock.recv(1024)
+            received = self.sock.recv(4096)
             current, eom, next = received.partition(b"\r\n")
             self._buffer += current
             # End Of Message
