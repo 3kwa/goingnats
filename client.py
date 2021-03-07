@@ -1,7 +1,9 @@
 """
 a Python NATS client
 
-https://docs.nats.io/nats-protocol/nats-protocol
+>>> from goingnats import Client
+
+Check if __name__ == "__main__" for full example
 """
 
 import queue
@@ -23,18 +25,22 @@ class Client:
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def get(self):
+        """returns list of messages received since get was last called"""
         return [self._messages.get_nowait() for _ in range(self._messages.qsize())]
 
     def publish(self, *, subject, payload=""):
+        """publish payload on subject"""
         self._sock.send(
             f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8")
         )
 
     def subscribe(self, *, subject):
+        """subscribe to subject"""
         self._sid += 1
         self._sock.send(f"SUB {subject} {self._sid}\r\n".encode("utf-8"))
 
     def request(self, *, subject, payload=""):
+        """request subject for a response to payload"""
         inbox = f"INBOX.{uuid.uuid4().hex}"
         self._sid += 1
         self._sock.send(f"SUB {inbox} {self._sid}\r\n".encode("utf-8"))
@@ -60,6 +66,7 @@ class Client:
         self._disconnect()
 
     def _thread(self):
+        # https://docs.nats.io/nats-protocol/nats-protocol
         while True:
             received = self._sock.recv(4096)
             current, eom, next = received.partition(b"\r\n")
@@ -119,7 +126,6 @@ Response = namedtuple("Response", "payload")
 if __name__ == "__main__":
     import datetime as dt
     import time
-    from contextlib import suppress
 
     def publisher():
         """publish time.time() every second"""
@@ -138,6 +144,7 @@ if __name__ == "__main__":
                 for request in client.get():
                     # slow responder
                     time.sleep(2)
+                    # will format the date according to payload or defaults to ...
                     format = (
                         request.payload.decode("utf-8")
                         if request.payload
@@ -150,7 +157,7 @@ if __name__ == "__main__":
 
     threading.Thread(target=responder, daemon=True).start()
 
-    with suppress(KeyboardInterrupt), Client(name="consumer") as client:
+    with Client(name="consumer") as client:
         client.subscribe(subject="time.time")
         received = 0
         response = None
@@ -159,5 +166,6 @@ if __name__ == "__main__":
                 print(message)
                 received += 1
             if received == 3 and response is None:
+                # request response are blocking
                 response = client.request(subject="today", payload="%Y%m%d")
                 print(response)
