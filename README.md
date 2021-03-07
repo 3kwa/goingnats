@@ -29,6 +29,11 @@ It implements the feature I use, which maybe all you need too.
 How?
 ----
 
+A contrived example illustrating how an `application` would interact with a
+`publisher` and a `responder` via NATS.
+
+Fire up NATS on your dev box and `python -m goingnats` to see it run.
+
 ```Python
 import datetime as dt
 import time
@@ -66,6 +71,7 @@ def responder():
 
 threading.Thread(target=responder, daemon=True).start()
 
+# application
 with Client(name="consumer") as client:
     client.subscribe(subject="time.time")
     received = 0

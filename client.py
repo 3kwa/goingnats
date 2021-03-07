@@ -157,6 +157,7 @@ if __name__ == "__main__":
 
     threading.Thread(target=responder, daemon=True).start()
 
+    # application
     with Client(name="consumer") as client:
         client.subscribe(subject="time.time")
         received = 0
