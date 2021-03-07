@@ -20,35 +20,35 @@ class Client:
         self._messages = queue.Queue()
         self._response = queue.Queue(maxsize=1)
         self._sid = 0
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def get(self):
         return self._messages.get()
 
     def publish(self, *, subject, payload=""):
-        self.sock.send(f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8"))
+        self._sock.send(f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8"))
 
     def subscribe(self, *, subject):
         self._sid += 1
-        self.sock.send(f"SUB {subject} {self._sid}\r\n".encode("utf-8"))
+        self._sock.send(f"SUB {subject} {self._sid}\r\n".encode("utf-8"))
 
     def request(self, *, subject, payload=""):
         inbox = f"INBOX.{uuid.uuid4().hex}"
         self._sid += 1
-        self.sock.send(f"SUB {inbox} {self._sid}\r\n".encode("utf-8"))
-        self.sock.send(
+        self._sock.send(f"SUB {inbox} {self._sid}\r\n".encode("utf-8"))
+        self._sock.send(f"UNSUB {self._sid} 1\r\n".encode("utf-8"))
+        self._sock.send(
             f"PUB {subject} {inbox} {len(payload)}\r\n{payload}\r\n".encode("utf-8")
         )
-        self.sock.send(f"UNSUB {self._sid} 1\r\n".encode("utf-8"))
         return self._response.get()
 
     def _connect(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.host, self.port))
+        self._sock.connect((self.host, self.port))
         threading.Thread(target=self._thread, daemon=True).start()
 
     def _disconnect(self):
-        self.sock.shutdown(socket.SHUT_RDWR)
-        self.sock.close()
+        self._sock.shutdown(socket.SHUT_RDWR)
+        self._sock.close()
 
     def __enter__(self):
         self._connect()
@@ -59,13 +59,13 @@ class Client:
 
     def _thread(self):
         while True:
-            received = self.sock.recv(4096)
+            received = self._sock.recv(4096)
             current, eom, next = received.partition(b"\r\n")
             self._buffer += current
             # End Of Message
             if eom:
                 if self._buffer == b"PING":
-                    self.sock.send(b"PONG\r\n")
+                    self._sock.send(b"PONG\r\n")
                 elif self._buffer == b"PONG":
                     pass
                 elif self._buffer == b"+OK":
@@ -73,7 +73,7 @@ class Client:
                 elif self._buffer.startswith(b"-ERR"):
                     print(self._buffer)
                 elif self._buffer.startswith(b"INFO"):
-                    self.sock.send(
+                    self._sock.send(
                         f'CONNECT {{"name": "{self.name}", "verbose": false}}\r\n'.encode(
                             "utf-8"
                         )
