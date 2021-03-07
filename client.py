@@ -26,7 +26,9 @@ class Client:
         return [self._messages.get_nowait() for _ in range(self._messages.qsize())]
 
     def publish(self, *, subject, payload=""):
-        self._sock.send(f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8"))
+        self._sock.send(
+            f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8")
+        )
 
     def subscribe(self, *, subject):
         self._sid += 1
@@ -136,9 +138,14 @@ if __name__ == "__main__":
                 for request in client.get():
                     # slow responder
                     time.sleep(2)
-                    format = request.payload.decode("utf-8") if request.payload else "%Y-%m-%d"
+                    format = (
+                        request.payload.decode("utf-8")
+                        if request.payload
+                        else "%Y-%m-%d"
+                    )
                     client.publish(
-                            subject=request.inbox.decode("utf-8"), payload=f"{dt.date.today():{format}}"
+                        subject=request.inbox.decode("utf-8"),
+                        payload=f"{dt.date.today():{format}}",
                     )
 
     threading.Thread(target=responder, daemon=True).start()
