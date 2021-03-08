@@ -23,6 +23,7 @@ class Client:
         self._response = queue.Queue(maxsize=1)
         self._sid = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._run = False
 
     def get(self):
         """returns list of messages received since get was last called"""
@@ -50,24 +51,20 @@ class Client:
         )
         return self._response.get()
 
-    def _connect(self):
-        self._sock.connect((self.host, self.port))
-        threading.Thread(target=self._thread, daemon=True).start()
-
-    def _disconnect(self):
-        self._sock.shutdown(socket.SHUT_RDWR)
-        self._sock.close()
-
     def __enter__(self):
-        self._connect()
+        self._sock.connect((self.host, self.port))
+        self._run = True
+        threading.Thread(target=self._thread, daemon=True).start()
         return self
 
     def __exit__(self, exception_type, exception_value, exception_traceback):
-        self._disconnect()
+        self._run = False
+        self._sock.shutdown(socket.SHUT_RDWR)
+        self._sock.close()
 
     def _thread(self):
         # https://docs.nats.io/nats-protocol/nats-protocol
-        while True:
+        while self._run:
             received = self._sock.recv(4096)
             current, eom, next = received.partition(b"\r\n")
             self._buffer += current
