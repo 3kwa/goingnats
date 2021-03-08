@@ -7,7 +7,7 @@ readme = os.path.join(curdir, "README.md")
 
 setup(
     name="goingnats",
-    version="2021.3.0",
+    version="2021.3.1",
     description="a Python NATS client",
     long_description=open(readme).read(),
     long_description_content_type="text/markdown",
