@@ -10,6 +10,7 @@ import queue
 import socket
 import threading
 import uuid
+import warnings
 from collections import namedtuple
 
 
@@ -31,58 +32,69 @@ class Client:
 
     def publish(self, *, subject, payload=""):
         """publish payload on subject"""
-        self._sock.sendall(
-            f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8")
-        )
+        self._send(f"PUB {subject} {len(payload)}\r\n{payload}")
 
     def subscribe(self, *, subject):
         """subscribe to subject"""
         self._sid += 1
-        self._sock.sendall(f"SUB {subject} {self._sid}\r\n".encode("utf-8"))
+        self._send(f"SUB {subject} {self._sid}")
 
     def request(self, *, subject, payload=""):
         """request subject for a response to payload"""
         inbox = f"INBOX.{uuid.uuid4().hex}"
         self._sid += 1
-        self._sock.sendall(f"SUB {inbox} {self._sid}\r\n".encode("utf-8"))
-        self._sock.sendall(f"UNSUB {self._sid} 1\r\n".encode("utf-8"))
-        self._sock.sendall(
-            f"PUB {subject} {inbox} {len(payload)}\r\n{payload}\r\n".encode("utf-8")
-        )
+        self._send(f"SUB {inbox} {self._sid}")
+        self._send(f"UNSUB {self._sid} 1")
+        self._send(f"PUB {subject} {inbox} {len(payload)}\r\n{payload}")
         return self._response.get()
 
     def __enter__(self):
-        self._sock.connect((self.host, self.port))
+        try:
+            self._sock.connect((self.host, self.port))
+        except ConnectionRefusedError as e:
+            raise ConnectionRefusedError(
+                f"can't connect to {self.host}:{self.port}"
+            ) from e
         self._run = True
         threading.Thread(target=self._thread, daemon=True).start()
         return self
 
     def __exit__(self, exception_type, exception_value, exception_traceback):
         self._run = False
-        self._sock.shutdown(socket.SHUT_RDWR)
+        try:
+            self._sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
         self._sock.close()
+
+    def _send(self, string):
+        try:
+            self._sock.sendall(f"{string}\r\n".encode("utf-8"))
+        except BrokenPipeError as e:
+            raise BrokenPipeError("send failed") from e
 
     def _thread(self):
         # https://docs.nats.io/nats-protocol/nats-protocol
         while self._run:
-            received = self._sock.recv(4096)
+            try:
+                received = self._sock.recv(4096)
+            except ConnectionResetError as e:
+                raise ConnectionResetError("recv failed") from e
             current, eom, next = received.partition(b"\r\n")
             self._buffer += current
             # End Of Message
             if eom:
                 if self._buffer == b"PING":
-                    self._sock.sendall(b"PONG\r\n")
+                    self._send("PONG")
                 elif self._buffer == b"PONG":
                     pass
                 elif self._buffer == b"+OK":
                     pass
                 elif self._buffer.startswith(b"-ERR"):
-                    print(self._buffer)
+                    raise warnings.warn(self._buffer.decode("utf-8"))
                 elif self._buffer.startswith(b"INFO"):
-                    self._sock.sendall(
-                        f'CONNECT {{"name": "{self.name}", "verbose": false}}\r\n'.encode(
-                            "utf-8"
-                        )
+                    self._send(
+                        f'CONNECT {{"name": "{self.name}", "verbose": false}}'
                     )
                 elif self._buffer.startswith(b"MSG"):
                     # MSG ...  \r\n[payload]\r\n
@@ -119,6 +131,7 @@ class Client:
 Message = namedtuple("Message", "subject payload")
 Request = namedtuple("Request", "subject inbox payload")
 Response = namedtuple("Response", "payload")
+
 
 if __name__ == "__main__":
     import datetime as dt
