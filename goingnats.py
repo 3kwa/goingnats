@@ -31,22 +31,22 @@ class Client:
 
     def publish(self, *, subject, payload=""):
         """publish payload on subject"""
-        self._sock.send(
+        self._sock.sendall(
             f"PUB {subject} {len(payload)}\r\n{payload}\r\n".encode("utf-8")
         )
 
     def subscribe(self, *, subject):
         """subscribe to subject"""
         self._sid += 1
-        self._sock.send(f"SUB {subject} {self._sid}\r\n".encode("utf-8"))
+        self._sock.sendall(f"SUB {subject} {self._sid}\r\n".encode("utf-8"))
 
     def request(self, *, subject, payload=""):
         """request subject for a response to payload"""
         inbox = f"INBOX.{uuid.uuid4().hex}"
         self._sid += 1
-        self._sock.send(f"SUB {inbox} {self._sid}\r\n".encode("utf-8"))
-        self._sock.send(f"UNSUB {self._sid} 1\r\n".encode("utf-8"))
-        self._sock.send(
+        self._sock.sendall(f"SUB {inbox} {self._sid}\r\n".encode("utf-8"))
+        self._sock.sendall(f"UNSUB {self._sid} 1\r\n".encode("utf-8"))
+        self._sock.sendall(
             f"PUB {subject} {inbox} {len(payload)}\r\n{payload}\r\n".encode("utf-8")
         )
         return self._response.get()
@@ -71,7 +71,7 @@ class Client:
             # End Of Message
             if eom:
                 if self._buffer == b"PING":
-                    self._sock.send(b"PONG\r\n")
+                    self._sock.sendall(b"PONG\r\n")
                 elif self._buffer == b"PONG":
                     pass
                 elif self._buffer == b"+OK":
@@ -79,7 +79,7 @@ class Client:
                 elif self._buffer.startswith(b"-ERR"):
                     print(self._buffer)
                 elif self._buffer.startswith(b"INFO"):
-                    self._sock.send(
+                    self._sock.sendall(
                         f'CONNECT {{"name": "{self.name}", "verbose": false}}\r\n'.encode(
                             "utf-8"
                         )
