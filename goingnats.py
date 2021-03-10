@@ -91,7 +91,6 @@ class Client:
                 buffer_ += received
                 continue
 
-            expect_payload = False
             for segment in segments[:-1]:
                 if segment == b"PING":
                     self._send("PONG")
@@ -105,7 +104,6 @@ class Client:
                     self._send(f'CONNECT {{"name": "{self.name}", "verbose": false}}')
                 elif segment.startswith(b"MSG"):
                     # MSG ...  \r\n[payload]\r\n
-                    expect_payload = True
                     split = segment.split(b" ")
                     subject = split[1]
                     # is it a request?
@@ -114,8 +112,6 @@ class Client:
                         inbox = split[3]
                 else:
                     # should be e a payload
-                    assert expect_payload, f"unexpected segment {segment}"
-                    expect_payload = False
                     # request
                     if inbox:
                         self._messages.put(Request(subject, inbox, segment))
