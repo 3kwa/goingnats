@@ -101,7 +101,7 @@ class Client:
                 elif segment == b"+OK":
                     pass
                 elif segment.startswith(b"-ERR"):
-                    raise warnings.warn(segment.decode("utf-8"))
+                    warnings.warn(segment.decode("utf-8"))
                 elif segment.startswith(b"INFO"):
                     self.information = json.loads(segment[4:])
                     information = {
