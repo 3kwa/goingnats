@@ -80,8 +80,8 @@ class Client:
                 received = self._sock.recv(4096)
             except ConnectionResetError as e:
                 raise ConnectionResetError("recv failed") from e
-            current, eom, next = received.partition(b"\r\n")
-            self._buffer += current
+            tail, eom, head = received.partition(b"\r\n")
+            self._buffer += tail
             # End Of Message
             if eom:
                 if self._buffer == b"PING":
@@ -102,10 +102,10 @@ class Client:
                     subject = split[1]
                     # is it a request?
                     inbox = False
-                    if len(split) == 5:
+                    if len(split) >= 5:
                         inbox = split[3]
                     # End Of Payload
-                    payload, eop, _ = next.partition(b"\r\n")
+                    payload, eop, new = head.partition(b"\r\n")
                     if eop:
                         # request
                         if inbox:
@@ -116,16 +116,8 @@ class Client:
                         # vanilla message
                         else:
                             self._messages.put(Message(subject, payload))
-                        next = b""
-                else:
-                    # payload over multiple recv calls
-                    if inbox:
-                        self._messages.put(Request(subject, inbox, payload))
-                    elif subject.startswith(b"INBOX."):
-                        self._response.put(Response(payload))
-                    else:
-                        self._messages.put(Message(subject, self._buffer))
-            self._buffer = next
+                        head = new
+                self._buffer = head
 
 
 Message = namedtuple("Message", "subject payload")
