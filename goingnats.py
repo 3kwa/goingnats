@@ -6,6 +6,7 @@ a Python NATS client
 Check if __name__ == "__main__" for full example
 """
 
+import json
 import queue
 import socket
 import threading
@@ -19,6 +20,7 @@ class Client:
         self.host = host
         self.port = port
         self.name = name
+        self.information = {}
         self._messages = queue.Queue()
         self._response = queue.Queue(maxsize=1)
         self._sid = 0
@@ -101,7 +103,13 @@ class Client:
                 elif segment.startswith(b"-ERR"):
                     raise warnings.warn(segment.decode("utf-8"))
                 elif segment.startswith(b"INFO"):
-                    self._send(f'CONNECT {{"name": "{self.name}", "verbose": false}}')
+                    self.information = json.loads(segment[4:])
+                    information = {
+                        "name": self.name,
+                        "verbose": False,
+                        "version": "goingnats",
+                    }
+                    self._send(f"CONNECT {json.dumps(information)}")
                 elif segment.startswith(b"MSG"):
                     # MSG ...  \r\n[payload]\r\n
                     split = segment.split(b" ")
