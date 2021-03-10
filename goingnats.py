@@ -19,7 +19,6 @@ class Client:
         self.host = host
         self.port = port
         self.name = name
-        self._buffer = b""
         self._messages = queue.Queue()
         self._response = queue.Queue(maxsize=1)
         self._sid = 0
@@ -75,49 +74,57 @@ class Client:
 
     def _thread(self):
         # https://docs.nats.io/nats-protocol/nats-protocol
+        buffer_ = b""
         while self._run:
             try:
                 received = self._sock.recv(4096)
             except ConnectionResetError as e:
                 raise ConnectionResetError("recv failed") from e
-            tail, eom, head = received.partition(b"\r\n")
-            self._buffer += tail
-            # End Of Message
-            if eom:
-                if self._buffer == b"PING":
+            segments = received.split(b"\r\n")
+            if len(segments) > 1:
+                # buffer contains tail of previous received \r\ntail
+                segments[0] = buffer_ + segments[0]
+                # will be b"" if received end with \r\n
+                buffer_ = segments[-1]
+            else:
+                # no \r\n received nothing to do but buffer
+                buffer_ += received
+                continue
+
+            expect_payload = False
+            for segment in segments[:-1]:
+                if segment == b"PING":
                     self._send("PONG")
-                elif self._buffer == b"PONG":
+                elif segment == b"PONG":
                     pass
-                elif self._buffer == b"+OK":
+                elif segment == b"+OK":
                     pass
-                elif self._buffer.startswith(b"-ERR"):
-                    raise warnings.warn(self._buffer.decode("utf-8"))
-                elif self._buffer.startswith(b"INFO"):
-                    self._send(
-                        f'CONNECT {{"name": "{self.name}", "verbose": false}}'
-                    )
-                elif self._buffer.startswith(b"MSG"):
+                elif segment.startswith(b"-ERR"):
+                    raise warnings.warn(segment.decode("utf-8"))
+                elif segment.startswith(b"INFO"):
+                    self._send(f'CONNECT {{"name": "{self.name}", "verbose": false}}')
+                elif segment.startswith(b"MSG"):
                     # MSG ...  \r\n[payload]\r\n
-                    split = self._buffer.split(b" ")
+                    expect_payload = True
+                    split = segment.split(b" ")
                     subject = split[1]
                     # is it a request?
                     inbox = False
                     if len(split) >= 5:
                         inbox = split[3]
-                    # End Of Payload
-                    payload, eop, new = head.partition(b"\r\n")
-                    if eop:
-                        # request
-                        if inbox:
-                            self._messages.put(Request(subject, inbox, payload))
-                        # response
-                        elif subject.startswith(b"INBOX."):
-                            self._response.put(Response(payload))
-                        # vanilla message
-                        else:
-                            self._messages.put(Message(subject, payload))
-                        head = new
-                self._buffer = head
+                else:
+                    # should be e a payload
+                    assert expect_payload, f"unexpected segment {segment}"
+                    expect_payload = False
+                    # request
+                    if inbox:
+                        self._messages.put(Request(subject, inbox, segment))
+                    # response
+                    elif subject.startswith(b"INBOX."):
+                        self._response.put(Response(segment))
+                    # vanilla message
+                    else:
+                        self._messages.put(Message(subject, segment))
 
 
 Message = namedtuple("Message", "subject payload")
