@@ -87,8 +87,8 @@ with Client(name="consumer") as client:
             print(response)
 ```
 
-One more thing
---------------
+`one` more thing
+----------------
 
 ```Python
 >>> from goingnats import one
