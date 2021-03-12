@@ -92,7 +92,7 @@ One more thing
 
 ```Python
 >>> from goingnats import one
->>> one(">")
+>>> one(subject=">")
 Message(...)
 ```
 
