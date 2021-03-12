@@ -1,10 +1,11 @@
 """
 a Python NATS client
 
->>> from goingnats import Client
+>>> from goingnats import Client, one
 
 Check if __name__ == "__main__" for full example
 """
+__version__ = "2021.3.4"
 
 import json
 import queue
@@ -107,7 +108,7 @@ class Client:
                     information = {
                         "name": self.name,
                         "verbose": False,
-                        "version": "goingnats",
+                        "version": f"goingnats-{__version__}",
                     }
                     self._send(f"CONNECT {json.dumps(information)}")
                 elif segment.startswith(b"MSG"):
@@ -134,6 +135,15 @@ class Client:
 Message = namedtuple("Message", "subject payload")
 Request = namedtuple("Request", "subject inbox payload")
 Response = namedtuple("Response", "payload")
+
+
+def one(*, subject, host="0.0.0.0", port=4222, name="one"):
+    """returns one (the first) message received on a subject"""
+    with Client(host=host, port=port, name=name) as client:
+        client.subscribe(subject=subject)
+        while True:
+            for message in client.get():
+                return message
 
 
 if __name__ == "__main__":

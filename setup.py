@@ -2,12 +2,22 @@ import os
 
 from setuptools import setup
 
-curdir = os.path.dirname(__file__)
+curdir = os.path.abspath(os.path.dirname(__file__))
 readme = os.path.join(curdir, "README.md")
+
+
+def version():
+    with open(os.path.join(curdir, "goingnats.py")) as f:
+        for line in f:
+            if line.startswith("__version__ = "):
+                break
+    version = line.partition(" = ")[-1]
+    return version.replace('"', '').strip()
+
 
 setup(
     name="goingnats",
-    version="2021.3.3",
+    version=version(),
     description="a Python NATS client",
     long_description=open(readme).read(),
     long_description_content_type="text/markdown",

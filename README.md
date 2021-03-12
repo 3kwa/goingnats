@@ -86,3 +86,13 @@ with Client(name="consumer") as client:
             response = client.request(subject="today", payload="%Y%m%d")
             print(response)
 ```
+
+One more thing
+--------------
+
+>>> from goingnats import one
+>>> one(">")
+
+`one` is a very handy little helper that waits to receive a message on a given subject and returns it.
+
+
