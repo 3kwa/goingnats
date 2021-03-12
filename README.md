@@ -90,8 +90,11 @@ with Client(name="consumer") as client:
 One more thing
 --------------
 
+```Python
 >>> from goingnats import one
 >>> one(">")
+Message(...)
+```
 
 `one` is a very handy little helper that waits to receive a message on a given subject and returns it.
 
