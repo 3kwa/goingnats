@@ -57,6 +57,8 @@ def responder():
         client.subscribe(subject="today")
         while True:
             for request in client.get():
+                if request.subject != "today":
+                    continue
                 # slow responder
                 time.sleep(2)
                 # will format the date according to payload or defaults to ...
@@ -66,7 +68,7 @@ def responder():
                     else "%Y-%m-%d"
                 )
                 client.publish(
-                    subject=request.inbox.decode("utf-8"),
+                    subject=request.inbox,
                     payload=f"{dt.date.today():{format}}",
                 )
 

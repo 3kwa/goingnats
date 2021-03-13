@@ -178,7 +178,7 @@ if __name__ == "__main__":
             while True:
                 for request in client.get():
                     if request.subject != "today":
-                        break
+                        continue
                     # slow responder
                     time.sleep(2)
                     # will format the date according to payload or defaults to ...
