@@ -17,7 +17,7 @@ from collections import namedtuple
 
 
 class Client:
-    def __init__(self, *, name, host="0.0.0.0", port=4222):
+    def __init__(self, *, name, host="127.0.0.1", port=4222):
         self.host = host
         self.port = port
         self.name = name
@@ -58,7 +58,7 @@ class Client:
                 f"can't connect to {self.host}:{self.port}"
             ) from e
         self._run = True
-        threading.Thread(target=self._thread, daemon=True).start()
+        threading.Thread(target=self._thread).start()
         return self
 
     def __exit__(self, exception_type, exception_value, exception_traceback):
@@ -74,6 +74,10 @@ class Client:
             self._sock.sendall(f"{string}\r\n".encode("utf-8"))
         except BrokenPipeError as e:
             raise BrokenPipeError("send failed") from e
+        except OSError as e:
+            # socket
+            if self._run:
+                raise OSError("send failed") from e
 
     def _thread(self):
         # https://docs.nats.io/nats-protocol/nats-protocol
@@ -83,6 +87,10 @@ class Client:
                 received = self._sock.recv(4096)
             except ConnectionResetError as e:
                 raise ConnectionResetError("recv failed") from e
+            except OSError as e:
+                if self._run:
+                    raise OSError("recv failed") from e
+
             segments = received.split(b"\r\n")
             if len(segments) > 1:
                 # buffer contains tail of previous received \r\ntail
