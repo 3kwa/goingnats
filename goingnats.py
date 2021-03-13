@@ -131,13 +131,17 @@ class Client:
                     # should be e a payload
                     # request
                     if inbox:
-                        self._messages.put(Request(subject, inbox, segment))
+                        self._messages.put(
+                            Request(
+                                subject.decode("utf-8"), inbox.decode("utf-8"), segment
+                            )
+                        )
                     # response
                     elif subject.startswith(b"INBOX."):
                         self._response.put(Response(segment))
                     # vanilla message
                     else:
-                        self._messages.put(Message(subject, segment))
+                        self._messages.put(Message(subject.decode("utf-8"), segment))
 
 
 Message = namedtuple("Message", "subject payload")
@@ -173,6 +177,8 @@ if __name__ == "__main__":
             client.subscribe(subject="today")
             while True:
                 for request in client.get():
+                    if request.subject != "today":
+                        break
                     # slow responder
                     time.sleep(2)
                     # will format the date according to payload or defaults to ...
@@ -182,7 +188,7 @@ if __name__ == "__main__":
                         else "%Y-%m-%d"
                     )
                     client.publish(
-                        subject=request.inbox.decode("utf-8"),
+                        subject=request.inbox,
                         payload=f"{dt.date.today():{format}}",
                     )
 
