@@ -14,6 +14,7 @@ import threading
 import uuid
 import warnings
 from collections import namedtuple
+from time import monotonic
 
 
 class Client:
@@ -28,8 +29,28 @@ class Client:
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._run = False
 
-    def get(self):
-        """returns list of messages received since get was last called"""
+    def get(self, *, wait=None):
+        """returns list of messages received since get was last called
+
+        waits for `wait` milliseconds
+        """
+        result = self._get()
+        if result:
+            return result
+        elif wait is None:
+            return result
+        elif wait < 0:
+            raise ValueError("wait must be a non-negative number")
+        else:
+            endtime = monotonic() + wait / 1_000
+            while not result:
+                result = self._get()
+                remaining = endtime - monotonic()
+                if remaining <= 0.0:
+                    break
+            return result
+
+    def _get(self):
         return [self._messages.get_nowait() for _ in range(self._messages.qsize())]
 
     def publish(self, *, subject, payload=""):
@@ -200,7 +221,7 @@ if __name__ == "__main__":
         received = 0
         response = None
         while received < 5:
-            for message in client.get():
+            for message in client.get(wait=10):
                 print(message)
                 received += 1
             if received == 3 and response is None:
