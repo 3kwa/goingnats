@@ -80,7 +80,8 @@ with Client(name="consumer") as client:
     received = 0
     response = None
     while received < 5:
-        for message in client.get():
+        # waits for at most 10 ms for messages
+        for message in client.get(wait=10):
             print(message)
             received += 1
         if received == 3 and response is None:
