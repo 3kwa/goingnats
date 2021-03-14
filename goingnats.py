@@ -23,6 +23,7 @@ class Client:
         self.port = port
         self.name = name
         self.information = {}
+        # get relies on _messages being queue.Queue to handle wait
         self._messages = queue.Queue()
         self._response = queue.Queue(maxsize=1)
         self._sid = 0
@@ -42,13 +43,11 @@ class Client:
         elif wait < 0:
             raise ValueError("wait must be a non-negative number")
         else:
-            endtime = monotonic() + wait / 1_000
-            while not result:
-                result = self._get()
-                remaining = endtime - monotonic()
-                if remaining <= 0.0:
-                    break
-            return result
+            # check the implementation of queue.Queue.get (_messages)
+            # read about threading.Condition.wait (not_empty)
+            with self._messages.not_empty:
+                self._messages.not_empty.wait(wait / 1_000)
+            return self._get()
 
     def _get(self):
         return [self._messages.get_nowait() for _ in range(self._messages.qsize())]
@@ -221,6 +220,7 @@ if __name__ == "__main__":
         received = 0
         response = None
         while received < 5:
+            # waits for at most 10 ms for messages
             for message in client.get(wait=10):
                 print(message)
                 received += 1
