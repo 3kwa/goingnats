@@ -14,7 +14,6 @@ import threading
 import uuid
 import warnings
 from collections import namedtuple
-from time import monotonic
 
 
 class Client:
