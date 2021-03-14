@@ -33,7 +33,7 @@ class Client:
     def get(self, *, wait=None):
         """returns list of messages received since get was last called
 
-        waits for `wait` milliseconds
+        waits for messages for at most `wait` milliseconds (or does not)
         """
         result = self._get()
         if result:
