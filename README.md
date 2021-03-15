@@ -9,7 +9,7 @@ I like [NATS](https://nats.io/) a lot.
 `asyncio` less so hence never played with the [official Python client](https://github.com/nats-io/nats.py).
 
 While I got a lot out of [nats-python](https://github.com/Gr1N/nats-python), it has
-some rought edges I would rather not have to work around as an end user.
+some rough edges I would rather not have to work around as an end user.
 
 I wanted to teach myself enough `socket` programming and gain a deeper understanding
 of the [NATS protocol](https://docs.nats.io/nats-protocol/nats-protocol).
@@ -24,7 +24,7 @@ a Python NATS client that fits the way I use NATS.
 
 It is far from feature complete.
 
-It implements the features I use, which maybe all you need too.
+It implements the features I use, which may be all you need too.
 
 How?
 ----
