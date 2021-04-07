@@ -58,18 +58,15 @@ class Client:
         """publish payload on subject"""
         try:
             self._send(
-                b"".join(
-                    [
-                        b"PUB",
-                        SPACE,
-                        subject,
-                        SPACE,
-                        _int_to_bytes(len(payload)),
-                        CRLF,
-                        payload,
-                        CRLF,
-                    ]
-                )
+                [
+                    b"PUB",
+                    SPACE,
+                    subject,
+                    SPACE,
+                    _int_to_bytes(len(payload)),
+                    CRLF,
+                    payload,
+                ]
             )
         except TypeError:
             raise TypeError("subject and payload must be bytes-like")
@@ -78,9 +75,7 @@ class Client:
         """subscribe to subject"""
         self._sid += 1
         try:
-            self._send(
-                b"".join([b"SUB", SPACE, subject, SPACE, _int_to_bytes(self._sid), CRLF])
-            )
+            self._send([b"SUB", SPACE, subject, SPACE, _int_to_bytes(self._sid)])
         except TypeError:
             raise TypeError("subject must be bytes-like")
 
@@ -88,28 +83,21 @@ class Client:
         """request subject for a response to payload"""
         inbox = f"INBOX.{uuid.uuid4().hex}".encode()
         self._sid += 1
-        self._send(
-            b"".join([b"SUB", SPACE, inbox, SPACE, _int_to_bytes(self._sid), CRLF])
-        )
-        self._send(
-            b"".join([b"UNSUB", SPACE, _int_to_bytes(self._sid), SPACE, b"1", CRLF])
-        )
+        self._send([b"SUB", SPACE, inbox, SPACE, _int_to_bytes(self._sid)])
+        self._send([b"UNSUB", SPACE, _int_to_bytes(self._sid), SPACE, b"1"])
         try:
             self._send(
-                b"".join(
-                    [
-                        b"PUB",
-                        SPACE,
-                        subject,
-                        SPACE,
-                        inbox,
-                        SPACE,
-                        _int_to_bytes(len(payload)),
-                        CRLF,
-                        payload,
-                        CRLF,
-                    ]
-                )
+                [
+                    b"PUB",
+                    SPACE,
+                    subject,
+                    SPACE,
+                    inbox,
+                    SPACE,
+                    _int_to_bytes(len(payload)),
+                    CRLF,
+                    payload,
+                ]
             )
         except TypeError:
             raise TypeError("subject and payload must be bytes-like")
@@ -135,8 +123,9 @@ class Client:
         self._sock.close()
 
     def _send(self, payload):
+        payload.append(CRLF)
         try:
-            self._sock.sendall(payload)
+            self._sock.sendall(b"".join(payload))
         except BrokenPipeError as e:
             raise BrokenPipeError("send failed") from e
         except OSError as e:
@@ -169,7 +158,7 @@ class Client:
 
             for segment in segments[:-1]:
                 if segment == b"PING":
-                    self._send(b"PONG\r\n")
+                    self._send([b"PONG"])
                 elif segment == b"PONG":
                     pass
                 elif segment == b"+OK":
@@ -184,14 +173,11 @@ class Client:
                         "version": f"goingnats-{__version__}",
                     }
                     self._send(
-                        b"".join(
-                            [
-                                b"CONNECT",
-                                SPACE,
-                                json.dumps(information).encode(),
-                                CRLF,
-                            ]
-                        )
+                        [
+                            b"CONNECT",
+                            SPACE,
+                            json.dumps(information).encode(),
+                        ]
                     )
                 elif segment.startswith(b"MSG"):
                     # MSG ...  \r\n[payload]\r\n
