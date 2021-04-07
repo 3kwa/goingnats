@@ -47,36 +47,36 @@ def publisher():
     with Client(name="publisher") as client:
         while True:
             time.sleep(1)
-            client.publish(subject="time.time", payload=f"{time.time()}")
+            client.publish(subject=b"time.time", payload=f"{time.time()}".encode())
 
 threading.Thread(target=publisher, daemon=True).start()
 
 def responder():
     """respond to request for today with the date"""
     with Client(name="responder") as client:
-        client.subscribe(subject="today")
+        client.subscribe(subject=b"today")
         while True:
             for request in client.get():
-                if request.subject != "today":
+                if request.subject != b"today":
                     continue
                 # slow responder
                 time.sleep(2)
                 # will format the date according to payload or defaults to ...
                 format = (
-                    request.payload.decode("utf-8")
+                    request.payload.decode()
                     if request.payload
                     else "%Y-%m-%d"
                 )
                 client.publish(
                     subject=request.inbox,
-                    payload=f"{dt.date.today():{format}}",
+                    payload=f"{dt.date.today():{format}}".encode(),
                 )
 
 threading.Thread(target=responder, daemon=True).start()
 
 # application
 with Client(name="consumer") as client:
-    client.subscribe(subject="time.time")
+    client.subscribe(subject=b"time.time")
     received = 0
     response = None
     while received < 5:
@@ -86,7 +86,7 @@ with Client(name="consumer") as client:
             received += 1
         if received == 3 and response is None:
             # request response are blocking
-            response = client.request(subject="today", payload="%Y%m%d")
+            response = client.request(subject=b"today", payload=b"%Y%m%d")
             print(response)
 ```
 
@@ -95,7 +95,7 @@ with Client(name="consumer") as client:
 
 ```Python
 >>> from goingnats import one
->>> one(subject=">")
+>>> one(subject=b">")
 Message(...)
 ```
 
