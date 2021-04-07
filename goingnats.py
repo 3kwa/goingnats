@@ -15,6 +15,9 @@ import uuid
 import warnings
 from collections import namedtuple
 
+SPACE = b" "
+CRLF = b"\r\n"
+
 
 class Client:
     def __init__(self, *, name, host="127.0.0.1", port=4222):
@@ -51,22 +54,65 @@ class Client:
     def _get(self):
         return [self._messages.get_nowait() for _ in range(self._messages.qsize())]
 
-    def publish(self, *, subject, payload=""):
+    def publish(self, *, subject, payload=b""):
         """publish payload on subject"""
-        self._send(f"PUB {subject} {len(payload)}\r\n{payload}")
+        try:
+            self._send(
+                b"".join(
+                    [
+                        b"PUB",
+                        SPACE,
+                        subject,
+                        SPACE,
+                        _int_to_bytes(len(payload)),
+                        CRLF,
+                        payload,
+                        CRLF,
+                    ]
+                )
+            )
+        except TypeError:
+            raise TypeError("subject and payload must be bytes-like")
 
     def subscribe(self, *, subject):
         """subscribe to subject"""
         self._sid += 1
-        self._send(f"SUB {subject} {self._sid}")
+        try:
+            self._send(
+                b"".join([b"SUB", SPACE, subject, SPACE, _int_to_bytes(self._sid), CRLF])
+            )
+        except TypeError:
+            raise TypeError("subject must be bytes-like")
 
     def request(self, *, subject, payload=""):
         """request subject for a response to payload"""
-        inbox = f"INBOX.{uuid.uuid4().hex}"
+        inbox = f"INBOX.{uuid.uuid4().hex}".encode()
         self._sid += 1
-        self._send(f"SUB {inbox} {self._sid}")
-        self._send(f"UNSUB {self._sid} 1")
-        self._send(f"PUB {subject} {inbox} {len(payload)}\r\n{payload}")
+        self._send(
+            b"".join([b"SUB", SPACE, inbox, SPACE, _int_to_bytes(self._sid), CRLF])
+        )
+        self._send(
+            b"".join([b"UNSUB", SPACE, _int_to_bytes(self._sid), SPACE, b"1", CRLF])
+        )
+        try:
+            self._send(
+                b"".join(
+                    [
+                        b"PUB",
+                        SPACE,
+                        subject,
+                        SPACE,
+                        inbox,
+                        SPACE,
+                        _int_to_bytes(len(payload)),
+                        CRLF,
+                        payload,
+                        CRLF,
+                    ]
+                )
+            )
+        except TypeError:
+            raise TypeError("subject and payload must be bytes-like")
         return self._response.get()
 
     def __enter__(self):
@@ -88,9 +134,9 @@ class Client:
             pass
         self._sock.close()
 
-    def _send(self, string):
+    def _send(self, payload):
         try:
-            self._sock.sendall(f"{string}\r\n".encode("utf-8"))
+            self._sock.sendall(payload)
         except BrokenPipeError as e:
             raise BrokenPipeError("send failed") from e
         except OSError as e:
@@ -123,13 +169,13 @@ class Client:
 
             for segment in segments[:-1]:
                 if segment == b"PING":
-                    self._send("PONG")
+                    self._send(b"PONG\r\n")
                 elif segment == b"PONG":
                     pass
                 elif segment == b"+OK":
                     pass
                 elif segment.startswith(b"-ERR"):
-                    warnings.warn(segment.decode("utf-8"))
+                    warnings.warn(segment.decode())
                 elif segment.startswith(b"INFO"):
                     self.information = json.loads(segment[4:])
                     information = {
@@ -137,7 +183,16 @@ class Client:
                         "verbose": False,
                         "version": f"goingnats-{__version__}",
                     }
-                    self._send(f"CONNECT {json.dumps(information)}")
+                    self._send(
+                        b"".join(
+                            [
+                                b"CONNECT",
+                                SPACE,
+                                json.dumps(information).encode(),
+                                CRLF,
+                            ]
+                        )
+                    )
                 elif segment.startswith(b"MSG"):
                     # MSG ...  \r\n[payload]\r\n
                     split = segment.split(b" ")
@@ -150,17 +205,13 @@ class Client:
                     # should be e a payload
                     # request
                     if inbox:
-                        self._messages.put(
-                            Request(
-                                subject.decode("utf-8"), inbox.decode("utf-8"), segment
-                            )
-                        )
+                        self._messages.put(Request(subject, inbox, segment))
                     # response
                     elif subject.startswith(b"INBOX."):
                         self._response.put(Response(segment))
                     # vanilla message
                     else:
-                        self._messages.put(Message(subject.decode("utf-8"), segment))
+                        self._messages.put(Message(subject, segment))
 
 
 Message = namedtuple("Message", "subject payload")
@@ -177,6 +228,10 @@ def one(*, subject, host="0.0.0.0", port=4222, name="one"):
                 return message
 
 
+def _int_to_bytes(i):
+    return f"{i}".encode()
+
+
 if __name__ == "__main__":
     import datetime as dt
     import time
@@ -186,36 +241,32 @@ if __name__ == "__main__":
         with Client(name="publisher") as client:
             while True:
                 time.sleep(1)
-                client.publish(subject="time.time", payload=f"{time.time()}")
+                client.publish(subject=b"time.time", payload=f"{time.time()}".encode())
 
     threading.Thread(target=publisher, daemon=True).start()
 
     def responder():
         """respond to request for today with the date"""
         with Client(name="responder") as client:
-            client.subscribe(subject="today")
+            client.subscribe(subject=b"today")
             while True:
                 for request in client.get():
-                    if request.subject != "today":
+                    if request.subject != b"today":
                         continue
                     # slow responder
                     time.sleep(2)
                     # will format the date according to payload or defaults to ...
-                    format = (
-                        request.payload.decode("utf-8")
-                        if request.payload
-                        else "%Y-%m-%d"
-                    )
+                    format = request.payload.decode() if request.payload else "%Y-%m-%d"
                     client.publish(
                         subject=request.inbox,
-                        payload=f"{dt.date.today():{format}}",
+                        payload=f"{dt.date.today():{format}}".encode(),
                     )
 
     threading.Thread(target=responder, daemon=True).start()
 
     # application
     with Client(name="consumer") as client:
-        client.subscribe(subject="time.time")
+        client.subscribe(subject=b"time.time")
         received = 0
         response = None
         while received < 5:
@@ -225,5 +276,5 @@ if __name__ == "__main__":
                 received += 1
             if received == 3 and response is None:
                 # request response are blocking
-                response = client.request(subject="today", payload="%Y%m%d")
+                response = client.request(subject=b"today", payload=b"%Y%m%d")
                 print(response)
