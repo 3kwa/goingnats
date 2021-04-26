@@ -10,6 +10,7 @@ __version__ = "2021.4.0"
 import json
 import queue
 import socket
+import sys
 import threading
 import uuid
 import warnings
@@ -69,7 +70,7 @@ class Client:
                 ]
             )
         except TypeError:
-            raise TypeError("subject and payload must be bytes-like")
+            raise TypeError("subject and payload must be bytes-like") from None
 
     def subscribe(self, *, subject):
         """subscribe to subject"""
@@ -77,7 +78,7 @@ class Client:
         try:
             self._send([b"SUB", SPACE, subject, SPACE, _int_to_bytes(self._sid)])
         except TypeError:
-            raise TypeError("subject must be bytes-like")
+            raise TypeError("subject must be bytes-like") from None
 
     def request(self, *, subject, payload=""):
         """request subject for a response to payload"""
@@ -100,7 +101,7 @@ class Client:
                 ]
             )
         except TypeError:
-            raise TypeError("subject and payload must be bytes-like")
+            raise TypeError("subject and payload must be bytes-like") from None
         return self._response.get()
 
     def __enter__(self):
