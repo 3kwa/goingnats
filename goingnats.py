@@ -10,7 +10,6 @@ __version__ = "2021.4.0"
 import json
 import queue
 import socket
-import sys
 import threading
 import uuid
 import warnings
