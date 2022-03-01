@@ -5,7 +5,7 @@ a Python NATS client
 
 Check if __name__ == "__main__" for full example
 """
-__version__ = "2021.4.0"
+__version__ = "2021.9.0"
 
 import json
 import queue
@@ -76,6 +76,20 @@ class Client:
         self._sid += 1
         try:
             self._send([b"SUB", SPACE, subject, SPACE, _int_to_bytes(self._sid)])
+            return self._sid
+        except TypeError:
+            raise TypeError("subject must be bytes-like") from None
+
+    def unsubscribe(self, *, sid, max_msgs=None):
+        """
+            unsubscribe from subscription id
+            https://docs.nats.io/nats-protocol/nats-protocol#unsub
+        """
+        try:
+            cmd = [b"UNSUB", SPACE, _int_to_bytes(sid)]
+            if max_msgs is not None:
+                cmd.append([SPACE, _int_to_bytes(max_msgs)])
+            self._send(cmd)
         except TypeError:
             raise TypeError("subject must be bytes-like") from None
 
@@ -252,7 +266,7 @@ if __name__ == "__main__":
 
     # application
     with Client(name="consumer") as client:
-        client.subscribe(subject=b"time.time")
+        sid = client.subscribe(subject=b"time.time")
         received = 0
         response = None
         while received < 5:
@@ -264,3 +278,4 @@ if __name__ == "__main__":
                 # request response are blocking
                 response = client.request(subject=b"today", payload=b"%Y%m%d")
                 print(response)
+        client.unsubscribe(sid)
