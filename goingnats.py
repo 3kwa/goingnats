@@ -1,10 +1,5 @@
-"""
-a Python NATS client
+"""a Python NATS client"""
 
->>> from goingnats import Client, one
-
-Check if __name__ == "__main__" for full example
-"""
 __version__ = "2022.3.0"
 
 import json
