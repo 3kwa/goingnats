@@ -5,7 +5,7 @@ a Python NATS client
 
 Check if __name__ == "__main__" for full example
 """
-__version__ = "2021.4.0"
+__version__ = "2022.3.0"
 
 import json
 import queue
