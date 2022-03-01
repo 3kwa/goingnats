@@ -79,7 +79,7 @@ class Client:
         except TypeError:
             raise TypeError("subject must be bytes-like") from None
 
-    def request(self, *, subject, payload=""):
+    def request(self, *, subject, payload=b""):
         """request subject for a response to payload"""
         inbox = f"INBOX.{uuid.uuid4().hex}".encode()
         self._sid += 1
