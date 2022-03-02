@@ -1,6 +1,6 @@
 """a Python NATS client"""
 
-__version__ = "2022.3.0"
+__version__ = "2022.3.1"
 
 import json
 import queue
