@@ -140,7 +140,7 @@ class Client:
                 if self._run:
                     raise OSError("recv failed") from e
 
-            segments = received.split(b"\r\n")
+            segments = received.split(CRLF)
             if len(segments) > 1:
                 # buffer contains tail of previous received \r\ntail
                 segments[0] = buffer_ + segments[0]
