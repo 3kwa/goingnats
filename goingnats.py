@@ -130,7 +130,7 @@ class Client:
 
     def _thread(self):
         # https://docs.nats.io/nats-protocol/nats-protocol
-        buffer_ = b""
+        messages = Messages()
         while self._run:
             try:
                 received = self._sock.recv(4096)
@@ -139,29 +139,17 @@ class Client:
             except OSError as e:
                 if self._run:
                     raise OSError("recv failed") from e
-
-            segments = received.split(CRLF)
-            if len(segments) > 1:
-                # buffer contains tail of previous received \r\ntail
-                segments[0] = buffer_ + segments[0]
-                # will be b"" if received end with \r\n
-                buffer_ = segments[-1]
-            else:
-                # no \r\n received nothing to do but buffer
-                buffer_ += received
-                continue
-
-            for segment in segments[:-1]:
-                if segment == b"PING":
+            for message in messages(received):
+                if message == b"PING":
                     self._send([b"PONG"])
-                elif segment == b"PONG":
+                elif message == b"PONG":
                     pass
-                elif segment == b"+OK":
+                elif message == b"+OK":
                     pass
-                elif segment.startswith(b"-ERR"):
-                    warnings.warn(segment.decode())
-                elif segment.startswith(b"INFO"):
-                    self.information = json.loads(segment[4:])
+                elif message.startswith(b"-ERR"):
+                    warnings.warn(message.decode())
+                elif message.startswith(b"INFO"):
+                    self.information = json.loads(message[4:])
                     information = {
                         "name": self.name,
                         "verbose": False,
@@ -174,9 +162,9 @@ class Client:
                             json.dumps(information).encode(),
                         ]
                     )
-                elif segment.startswith(b"MSG"):
+                elif message.startswith(b"MSG"):
                     # MSG ...  \r\n[payload]\r\n
-                    split = segment.split(b" ")
+                    split = message.split(b" ")
                     subject = split[1]
                     # is it a request?
                     inbox = False
@@ -186,13 +174,35 @@ class Client:
                     # should be e a payload
                     # request
                     if inbox:
-                        self._messages.put(Request(subject, inbox, segment))
+                        self._messages.put(Request(subject, inbox, message))
                     # response
                     elif subject.startswith(b"INBOX."):
-                        self._response.put(Response(segment))
+                        self._response.put(Response(message))
                     # vanilla message
                     else:
-                        self._messages.put(Message(subject, segment))
+                        self._messages.put(Message(subject, message))
+
+
+class Messages:
+    def __init__(self, separator=CRLF):
+        self.separator = separator
+        self._buffer = b""
+
+    def __call__(self, received):
+        self._buffer = b"".join([self._buffer, received])
+        return self
+
+    def __iter__(self):
+        messages = self._buffer.split(self.separator)
+        try:
+            last = self._buffer[-1]
+        except IndexError:
+            return
+        if last != self.separator:
+            self._buffer = messages[-1]
+            messages = messages[:-1]
+        for message in messages:
+            yield (message)
 
 
 Message = namedtuple("Message", "subject payload")
@@ -200,7 +210,7 @@ Request = namedtuple("Request", "subject inbox payload")
 Response = namedtuple("Response", "payload")
 
 
-def one(*, subject, host="0.0.0.0", port=4222, name="one"):
+def one(*, subject, host="127.0.0.1", port=4222, name="one"):
     """returns one (the first) message received on a subject"""
     with Client(host=host, port=port, name=name) as client:
         client.subscribe(subject=subject)
