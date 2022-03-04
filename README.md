@@ -37,10 +37,6 @@ Fire up NATS on your dev box and `python -m goingnats` to see it run.
 ```Python
 import datetime as dt
 import time
-import threading
-
-from goingnats import Client
-
 
 def publisher():
     """publish time.time() every second"""
@@ -55,27 +51,31 @@ def responder():
     """respond to request for today with the date"""
     with Client(name="responder") as client:
         client.subscribe(subject=b"today")
+        client.subscribe(subject=b"add")
         while True:
             for request in client.get():
-                if request.subject != b"today":
+                if request.subject == b"today":
+                    # slow responder
+                    time.sleep(2)
+                    # will format the date according to payload or defaults to ...
+                    format = request.payload.decode() if request.payload else "%Y-%m-%d"
+                    response = f"{dt.date.today():{format}}".encode()
+                elif request.subject == b"add":
+                    response = _int_to_bytes(sum(json.loads(request.payload)))
+                else:
                     continue
-                # slow responder
-                time.sleep(2)
-                # will format the date according to payload or defaults to ...
-                format = (
-                    request.payload.decode()
-                    if request.payload
-                    else "%Y-%m-%d"
-                )
                 client.publish(
                     subject=request.inbox,
-                    payload=f"{dt.date.today():{format}}".encode(),
+                    payload=response,
                 )
 
 threading.Thread(target=responder, daemon=True).start()
 
 # application
 with Client(name="consumer") as client:
+    print("--- one ---")
+    print(one(subject=b"time.time"))
+    print("--- client.subscribe + client.request ---")
     client.subscribe(subject=b"time.time")
     received = 0
     response = None
@@ -88,10 +88,16 @@ with Client(name="consumer") as client:
             # request response are blocking
             response = client.request(subject=b"today", payload=b"%Y%m%d")
             print(response)
+    print("--- request ---")
+    print(request(subject=b"add", payload=b"[1, 2, 3]"))
+    try:
+        print(request(subject=b"today", wait=100))
+    except TimeoutError as e:
+        print(e)
 ```
 
-`one` more thing
-----------------
+`one` more thing ... two actually
+---------------------------------
 
 ```Python
 >>> from goingnats import one
@@ -102,3 +108,10 @@ Message(...)
 `one` is a very handy little helper that waits to receive a message on a given subject and returns it.
 
 
+```Python
+>>> from goingnats import request
+>>> request(subject=b"add", payload=b"[1, 2, 3]")
+Message(payload=b"6")
+```
+
+`request` is another handy helper when developing services running on NATS.

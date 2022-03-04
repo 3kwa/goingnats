@@ -1,6 +1,23 @@
-"""a Python NATS client"""
+"""a Python NATS client
 
-__version__ = "2022.3.1"
+Checkout `if __name__ == "__main__"` block for usage
+
+$ python -m goingnats
+--- one ---
+Message(subject=b'time.time', payload=b'1646389270.6568809')
+--- client.subscribe + client.request ---
+Message(subject=b'time.time', payload=b'1646389271.6775382')
+Message(subject=b'time.time', payload=b'1646389272.690817')
+Message(subject=b'time.time', payload=b'1646389273.70843')
+Response(payload=b'20220304')
+Message(subject=b'time.time', payload=b'1646389274.724187')
+Message(subject=b'time.time', payload=b'1646389275.733218')
+--- request ---
+Response(payload=b'6')
+no respponse received from b'today' in 100 ms
+"""
+
+__version__ = "2022.3.2"
 
 import json
 import queue
@@ -74,7 +91,7 @@ class Client:
         except TypeError:
             raise TypeError("subject must be bytes-like") from None
 
-    def request(self, *, subject, payload=b""):
+    def request(self, *, subject, payload=b"", wait=None):
         """request subject for a response to payload"""
         inbox = f"INBOX.{uuid.uuid4().hex}".encode()
         self._sid += 1
@@ -96,7 +113,10 @@ class Client:
             )
         except TypeError:
             raise TypeError("subject and payload must be bytes-like") from None
-        return self._response.get()
+        try:
+            return self._response.get(timeout=wait / 1_000 if wait else None)
+        except queue.Empty:
+            raise TimeoutError(f"no respponse received from {subject} in {wait} ms")
 
     def __enter__(self):
         try:
@@ -219,9 +239,9 @@ def one(*, subject, host="127.0.0.1", port=4222, name="one"):
                 return message
 
 
-def request(*, subject, host="127.0.0.1", port=4222):
+def request(*, subject, payload=b"", wait=None, host="127.0.0.1", port=4222):
     with Client(host=host, port=port, name=f"request.{subject.decode()}") as client:
-        return client.request(subject=subject)
+        return client.request(subject=subject, payload=payload, wait=wait)
 
 
 def _int_to_bytes(i):
@@ -245,23 +265,31 @@ if __name__ == "__main__":
         """respond to request for today with the date"""
         with Client(name="responder") as client:
             client.subscribe(subject=b"today")
+            client.subscribe(subject=b"add")
             while True:
                 for request in client.get():
-                    if request.subject != b"today":
+                    if request.subject == b"today":
+                        # slow responder
+                        time.sleep(2)
+                        # will format the date according to payload or defaults to ...
+                        format = request.payload.decode() if request.payload else "%Y-%m-%d"
+                        response = f"{dt.date.today():{format}}".encode()
+                    elif request.subject == b"add":
+                        response = _int_to_bytes(sum(json.loads(request.payload)))
+                    else:
                         continue
-                    # slow responder
-                    time.sleep(2)
-                    # will format the date according to payload or defaults to ...
-                    format = request.payload.decode() if request.payload else "%Y-%m-%d"
                     client.publish(
                         subject=request.inbox,
-                        payload=f"{dt.date.today():{format}}".encode(),
+                        payload=response,
                     )
 
     threading.Thread(target=responder, daemon=True).start()
 
     # application
     with Client(name="consumer") as client:
+        print("--- one ---")
+        print(one(subject=b"time.time"))
+        print("--- client.subscribe + client.request ---")
         client.subscribe(subject=b"time.time")
         received = 0
         response = None
@@ -274,3 +302,9 @@ if __name__ == "__main__":
                 # request response are blocking
                 response = client.request(subject=b"today", payload=b"%Y%m%d")
                 print(response)
+        print("--- request ---")
+        print(request(subject=b"add", payload=b"[1, 2, 3]"))
+        try:
+            print(request(subject=b"today", wait=100))
+        except TimeoutError as e:
+            print(e)
