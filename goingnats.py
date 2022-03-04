@@ -219,6 +219,11 @@ def one(*, subject, host="127.0.0.1", port=4222, name="one"):
                 return message
 
 
+def request(*, subject, host="127.0.0.1", port=4222):
+    with Client(host=host, port=port, name=f"request.{subject.decode()}") as client:
+        return client.request(subject=subject)
+
+
 def _int_to_bytes(i):
     return f"{i}".encode()
 
