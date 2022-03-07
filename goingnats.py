@@ -17,7 +17,7 @@ Response(payload=b'6')
 no respponse received from b'today' in 100 ms
 """
 
-__version__ = "2022.3.2"
+__version__ = "2022.3.3"
 
 import json
 import queue
