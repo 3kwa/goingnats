@@ -42,6 +42,7 @@ class Client:
         self._response = queue.Queue(maxsize=1)
         self._sid = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self._run = False
 
     def get(self, *, wait=None):
