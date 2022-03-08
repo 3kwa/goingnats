@@ -17,7 +17,7 @@ Response(payload=b'6')
 no respponse received from b'today' in 100 ms
 """
 
-__version__ = "2022.3.3"
+__version__ = "2022.3.4"
 
 import json
 import queue
@@ -245,6 +245,11 @@ def request(*, subject, payload=b"", wait=None, host="127.0.0.1", port=4222):
         return client.request(subject=subject, payload=payload, wait=wait)
 
 
+def publish(*, subject, payload=b"", host="127.0,0,1", port=4222):
+    with Client(host=host, port=port, name="publish") as client:
+        client.publish(subject=subject, payload=payload)
+
+
 def _int_to_bytes(i):
     return f"{i}".encode()
 
@@ -273,7 +278,9 @@ if __name__ == "__main__":
                         # slow responder
                         time.sleep(2)
                         # will format the date according to payload or defaults to ...
-                        format = request.payload.decode() if request.payload else "%Y-%m-%d"
+                        format = (
+                            request.payload.decode() if request.payload else "%Y-%m-%d"
+                        )
                         response = f"{dt.date.today():{format}}".encode()
                     elif request.subject == b"add":
                         response = _int_to_bytes(sum(json.loads(request.payload)))
