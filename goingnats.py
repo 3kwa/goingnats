@@ -245,7 +245,7 @@ def request(*, subject, payload=b"", wait=None, host="127.0.0.1", port=4222):
         return client.request(subject=subject, payload=payload, wait=wait)
 
 
-def publish(*, subject, payload=b"", host="127.0,0,1", port=4222):
+def publish(*, subject, payload=b"", host="127.0.0.1", port=4222):
     with Client(host=host, port=port, name="publish") as client:
         client.publish(subject=subject, payload=payload)
 
