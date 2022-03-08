@@ -99,7 +99,7 @@ with Client(name="consumer") as client:
 ```
 
 `one` more thing ... three actually
----------------------------------
+-----------------------------------
 
 ```Python
 >>> from goingnats import one
