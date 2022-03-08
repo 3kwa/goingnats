@@ -241,11 +241,13 @@ def one(*, subject, host="127.0.0.1", port=4222, name="one"):
 
 
 def request(*, subject, payload=b"", wait=None, host="127.0.0.1", port=4222):
+    """sends payload to subject and wait for a response (for at most wait ms when specified)"""
     with Client(host=host, port=port, name=f"request.{subject.decode()}") as client:
         return client.request(subject=subject, payload=payload, wait=wait)
 
 
 def publish(*, subject, payload=b"", host="127.0.0.1", port=4222):
+    """publishes payload on subject"""
     with Client(host=host, port=port, name="publish") as client:
         client.publish(subject=subject, payload=payload)
 
