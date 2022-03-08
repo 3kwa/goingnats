@@ -96,7 +96,7 @@ with Client(name="consumer") as client:
         print(e)
 ```
 
-`one` more thing ... two actually
+`one` more thing ... three actually
 ---------------------------------
 
 ```Python
@@ -115,3 +115,10 @@ Message(payload=b"6")
 ```
 
 `request` is another handy helper when developing services running on NATS.
+
+```Python
+>>> from goingnats import publish
+>>> publish(subject=b"something.important", payload=b"OR_NOR")
+```
+
+`publish` is similar to `request` but does not expect a response ... another convenient helper.
