@@ -85,6 +85,8 @@ with Client(name="consumer") as client:
             print(message)
             received += 1
         if received == 3 and response is None:
+            # publish
+            publish(subject=b"time.time", payload=b"hijack")
             # request response are blocking
             response = client.request(subject=b"today", payload=b"%Y%m%d")
             print(response)

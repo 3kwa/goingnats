@@ -10,6 +10,7 @@ Message(subject=b'time.time', payload=b'1646389271.6775382')
 Message(subject=b'time.time', payload=b'1646389272.690817')
 Message(subject=b'time.time', payload=b'1646389273.70843')
 Response(payload=b'20220304')
+Message(subhect=b'time.time', payload=b'hijack')
 Message(subject=b'time.time', payload=b'1646389274.724187')
 Message(subject=b'time.time', payload=b'1646389275.733218')
 --- request ---
@@ -309,6 +310,8 @@ if __name__ == "__main__":
                 print(message)
                 received += 1
             if received == 3 and response is None:
+                # publish
+                publish(subject=b"time.time", payload=b"hijack")
                 # request response are blocking
                 response = client.request(subject=b"today", payload=b"%Y%m%d")
                 print(response)
