@@ -18,7 +18,7 @@ Response(payload=b'6')
 no respponse received from b'today' in 100 ms
 """
 
-__version__ = "2022.3.5"
+__version__ = "2022.3.6"
 
 import json
 import queue
@@ -124,9 +124,7 @@ class Client:
         try:
             self._sock.connect((self.host, self.port))
         except ConnectionRefusedError as e:
-            raise ConnectionRefusedError(
-                f"can't connect to {self.host}:{self.port}"
-            ) from e
+            raise ConnectionRefusedError(f"can't connect to {self.host}:{self.port}") from e
         self._run = True
         threading.Thread(target=self._thread).start()
         return self
@@ -237,7 +235,7 @@ def one(*, subject, host="127.0.0.1", port=4222, name="one"):
     with Client(host=host, port=port, name=name) as client:
         client.subscribe(subject=subject)
         while True:
-            for message in client.get():
+            for message in client.get(wait=100):
                 return message
 
 
@@ -281,9 +279,7 @@ if __name__ == "__main__":
                         # slow responder
                         time.sleep(2)
                         # will format the date according to payload or defaults to ...
-                        format = (
-                            request.payload.decode() if request.payload else "%Y-%m-%d"
-                        )
+                        format = request.payload.decode() if request.payload else "%Y-%m-%d"
                         response = f"{dt.date.today():{format}}".encode()
                     elif request.subject == b"add":
                         response = _int_to_bytes(sum(json.loads(request.payload)))
