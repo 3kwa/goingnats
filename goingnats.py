@@ -18,7 +18,7 @@ Response(payload=b'6')
 no respponse received from b'today' in 100 ms
 """
 
-__version__ = "2022.3.6"
+__version__ = "2022.3.7"
 
 import json
 import queue
@@ -159,6 +159,9 @@ class Client:
             except OSError as e:
                 if self._run:
                     raise OSError("recv failed") from e
+                else:
+                    # client is closing already
+                    continue
             for message in messages(received):
                 if message == b"PING":
                     self._send([b"PONG"])
