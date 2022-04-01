@@ -96,6 +96,8 @@ with Client(name="consumer") as client:
         print(request(subject=b"today", wait=100))
     except TimeoutError as e:
         print(e)
+# UserWarning: NOP - out of context manager
+client.publish(subject=b"out.of.context.manager")
 ```
 
 `one` more thing ... three actually
@@ -120,7 +122,7 @@ Message(payload=b"6")
 
 ```Python
 >>> from goingnats import publish
->>> publish(subject=b"something.important", payload=b"OR_NOR")
+>>> publish(subject=b"something.important", payload=b"OR_NOT")
 ```
 
 `publish` is similar to `request` but does not expect a response ... another convenient helper.

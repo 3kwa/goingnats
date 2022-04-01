@@ -16,9 +16,10 @@ Message(subject=b'time.time', payload=b'1646389275.733218')
 --- request ---
 Response(payload=b'6')
 no respponse received from b'today' in 100 ms
+... UserWarning: NOP - out of context manager ...
 """
 
-__version__ = "2022.3.7"
+__version__ = "2022.4.0"
 
 import json
 import queue
@@ -27,26 +28,32 @@ import threading
 import uuid
 import warnings
 from collections import namedtuple
+from typing import Optional, Generator, Any, Union
 
 SPACE = b" "
 CRLF = b"\r\n"
 
 
+Message = namedtuple("Message", "subject payload")
+Request = namedtuple("Request", "subject inbox payload")
+Response = namedtuple("Response", "payload")
+
+
 class Client:
-    def __init__(self, *, name, host="127.0.0.1", port=4222):
+    def __init__(self, *, name: str, host: str = "127.0.0.1", port: int = 4222):
         self.host = host
         self.port = port
         self.name = name
-        self.information = {}
+        self.information: dict[str, Any] = {}
         # get relies on _messages being queue.Queue to handle wait
-        self._messages = queue.Queue()
-        self._response = queue.Queue(maxsize=1)
+        self._messages: queue.Queue[Union[Message, Request]] = queue.Queue()
+        self._response: queue.Queue[Response] = queue.Queue(maxsize=1)
         self._sid = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self._run = False
 
-    def get(self, *, wait=None):
+    def get(self, *, wait: Optional[int] = None) -> list[Union[Message, Request]]:
         """returns list of messages received since get was last called
 
         waits for messages for at most `wait` milliseconds (or does not)
@@ -65,10 +72,10 @@ class Client:
                 self._messages.not_empty.wait(wait / 1_000)
             return self._get()
 
-    def _get(self):
+    def _get(self) -> list[Union[Message, Request]]:
         return [self._messages.get_nowait() for _ in range(self._messages.qsize())]
 
-    def publish(self, *, subject, payload=b""):
+    def publish(self, *, subject: bytes, payload: bytes = b""):
         """publish payload on subject"""
         try:
             self._send(
@@ -85,7 +92,7 @@ class Client:
         except TypeError:
             raise TypeError("subject and payload must be bytes-like") from None
 
-    def subscribe(self, *, subject):
+    def subscribe(self, *, subject: bytes):
         """subscribe to subject"""
         self._sid += 1
         try:
@@ -93,7 +100,9 @@ class Client:
         except TypeError:
             raise TypeError("subject must be bytes-like") from None
 
-    def request(self, *, subject, payload=b"", wait=None):
+    def request(
+        self, *, subject: bytes, payload: bytes = b"", wait: Optional[int] = None
+    ) -> Response:
         """request subject for a response to payload"""
         inbox = f"INBOX.{uuid.uuid4().hex}".encode()
         self._sid += 1
@@ -118,7 +127,7 @@ class Client:
         try:
             return self._response.get(timeout=wait / 1_000 if wait else None)
         except queue.Empty:
-            raise TimeoutError(f"no respponse received from {subject} in {wait} ms")
+            raise TimeoutError(f"no respponse received from {subject!r} in {wait} ms")
 
     def __enter__(self):
         try:
@@ -137,7 +146,7 @@ class Client:
             pass
         self._sock.close()
 
-    def _send(self, payload):
+    def _send(self, payload: list[bytes]):
         payload.append(CRLF)
         try:
             self._sock.sendall(b"".join(payload))
@@ -147,6 +156,7 @@ class Client:
             # socket
             if self._run:
                 raise OSError("send failed") from e
+            warnings.warn("NOP - out of context manager", stacklevel=3)
 
     def _thread(self):
         # https://docs.nats.io/nats-protocol/nats-protocol
@@ -207,15 +217,15 @@ class Client:
 
 
 class Messages:
-    def __init__(self, separator=CRLF):
+    def __init__(self, separator: bytes = CRLF):
         self.separator = separator
         self._buffer = b""
 
-    def __call__(self, received):
+    def __call__(self, received: bytes):
         self._buffer = b"".join([self._buffer, received])
         return self
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[bytes, None, None]:
         messages = self._buffer.split(self.separator)
         try:
             last = self._buffer[-1]
@@ -228,12 +238,7 @@ class Messages:
             yield (message)
 
 
-Message = namedtuple("Message", "subject payload")
-Request = namedtuple("Request", "subject inbox payload")
-Response = namedtuple("Response", "payload")
-
-
-def one(*, subject, host="127.0.0.1", port=4222, name="one"):
+def one(*, subject: bytes, host: str = "127.0.0.1", port: int = 4222, name: str = "one") -> Message:
     """returns one (the first) message received on a subject"""
     with Client(host=host, port=port, name=name) as client:
         client.subscribe(subject=subject)
@@ -242,19 +247,26 @@ def one(*, subject, host="127.0.0.1", port=4222, name="one"):
                 return message
 
 
-def request(*, subject, payload=b"", wait=None, host="127.0.0.1", port=4222):
+def request(
+    *,
+    subject: bytes,
+    payload: bytes = b"",
+    wait: Optional[int] = None,
+    host: str = "127.0.0.1",
+    port: int = 4222,
+) -> Response:
     """sends payload to subject and wait for a response (for at most wait ms when specified)"""
     with Client(host=host, port=port, name=f"request.{subject.decode()}") as client:
         return client.request(subject=subject, payload=payload, wait=wait)
 
 
-def publish(*, subject, payload=b"", host="127.0.0.1", port=4222):
+def publish(*, subject: bytes, payload: bytes = b"", host: str = "127.0.0.1", port: int = 4222):
     """publishes payload on subject"""
     with Client(host=host, port=port, name="publish") as client:
         client.publish(subject=subject, payload=payload)
 
 
-def _int_to_bytes(i):
+def _int_to_bytes(i: int) -> bytes:
     return f"{i}".encode()
 
 
@@ -320,3 +332,5 @@ if __name__ == "__main__":
             print(request(subject=b"today", wait=100))
         except TimeoutError as e:
             print(e)
+    # UserWarning: NOP - out of context manager
+    client.publish(subject=b"out.of.context.manager")
