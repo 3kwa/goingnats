@@ -22,17 +22,18 @@ no respponse received from b'today' in 100 ms
 __version__ = "2022.4.0"
 
 import json
+import os
 import queue
 import socket
 import threading
 import uuid
 import warnings
 from collections import namedtuple
-from typing import Optional, Generator, Any, Union
+from typing import Any, Generator, Optional, Union
 
+HOST = os.getenv("GOINGNATS_DEFAULT_HOST", "127.0.0.1")
 SPACE = b" "
 CRLF = b"\r\n"
-
 
 Message = namedtuple("Message", "subject payload")
 Request = namedtuple("Request", "subject inbox payload")
@@ -40,7 +41,7 @@ Response = namedtuple("Response", "payload")
 
 
 class Client:
-    def __init__(self, *, name: str, host: str = "127.0.0.1", port: int = 4222):
+    def __init__(self, *, name: str, host: str = HOST, port: int = 4222):
         self.host = host
         self.port = port
         self.name = name
@@ -238,7 +239,7 @@ class Messages:
             yield (message)
 
 
-def one(*, subject: bytes, host: str = "127.0.0.1", port: int = 4222, name: str = "one") -> Message:
+def one(*, subject: bytes, host: str = HOST, port: int = 4222, name: str = "one") -> Message:
     """returns one (the first) message received on a subject"""
     with Client(host=host, port=port, name=name) as client:
         client.subscribe(subject=subject)
@@ -252,7 +253,7 @@ def request(
     subject: bytes,
     payload: bytes = b"",
     wait: Optional[int] = None,
-    host: str = "127.0.0.1",
+    host: str = HOST,
     port: int = 4222,
 ) -> Response:
     """sends payload to subject and wait for a response (for at most wait ms when specified)"""
@@ -260,7 +261,7 @@ def request(
         return client.request(subject=subject, payload=payload, wait=wait)
 
 
-def publish(*, subject: bytes, payload: bytes = b"", host: str = "127.0.0.1", port: int = 4222):
+def publish(*, subject: bytes, payload: bytes = b"", host: str = HOST, port: int = 4222):
     """publishes payload on subject"""
     with Client(host=host, port=port, name="publish") as client:
         client.publish(subject=subject, payload=payload)
